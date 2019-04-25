@@ -1,0 +1,682 @@
+---
+title: "Data analysis about the diabetes in the US"
+author: "Jihong Tang"
+output:
+  html_notebook:
+    toc: yes
+    toc_float: yes
+  html_document:
+    df_print: paged
+    toc: yes
+  pdf_document: default
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# 1) Introduction to the project
+
+With the development of biological science, the analysis of big data is playing a significant role in the process to gain unknown knowledge. This Independent Study project focuses on the question how to get new knowledge and insight from the existing data about diseases over different areas using data analysis skills including cleaning data and mapping data in meaningful ways. 
+
+Two stages will be involved in this project, focusing on the diabetes, obesity and cartogram image respectively. 
+
+Stage one will focus on diabetes and obesity, recognizing the seriousness of the disease in US. With the workflow of data searching and downloading, data cleaning, data visualization, the animation of increasing incidence of diabetes and obesity over time in US will be made. Afterwards, several changes will be applied into the original procedure to get more insight into the relationship between diseases and areas. More diseases besides diabetes and obesity will be considered as well as data from more countries will be covered in this project. 
+
+Stage two will be based on the assumption that the increasing incidence of diabetes and obesity over time in US has relationship with some geographical factors. After putting some scales on the potential geographical factors when analyzing the data and making cartogram images, this project will try to find more information about the relationship.
+
+Finally, the whole project will base on the R, a programming language statistical computing and graphics.
+
+# 2) Data finding and data importing
+After finding the raw data of the number of diabetes cases in different states in the US from 1994 to 2015 on the website [Centers for Disease Control and Prevention](https://gis.cdc.gov/grasp/diabetes/DiabetesAtlas.html), I download these data in 22 cvs files according to the year number and import them into R as following codes shown:
+
+```{r message=FALSE, warning=FALSE}
+# library the packages and set up the environment
+library(readr) # library package "readr" to import the cvs data file
+library(tidyverse) # library package "tidyverse" to import some useful data manipultion package
+library(devtools) # library the package "devtools" to download one specific package used to get the space data
+library(gganimate) # library the package "gganimate" to animate the visulization result
+library(tweenr) # library the package "tweenr" to make a smooth animation
+library(viridis) # library the package "viridis" to get the wide range of color style
+library(ggpubr) # library the package "ggpubr" to use the "font" function to change the font element in the picture
+rm(list=ls())
+```
+
+```{r message=FALSE, warning=FALSE, tidy= TRUE}
+folder <- "~/R_projects/Diabetes/Raw_data_num"
+file_vec <- list.files(path = folder, pattern = "*.csv")
+
+for (i in 1:22){
+  file_vec[i]<- paste("Raw_data_num", file_vec[i], sep="/")
+}
+#to find all cvs files in the folder "Ram_data_num" and store their path information which is a parameter of function "read_csv" in a vector "file_vec"
+raw_data_total <- lapply(file_vec, read_csv, skip = 2, n_max = 54, col_types ="ci")
+# to use lapply and read_csv to get all data imported, parameter "skip" and "n_max" are used to ignore several rows with useless information in the raw cvs file, parameter "col_types" is used to change the data structure for further data manipulation
+for (j in 1:22){
+ raw_data_total[[j]] <- raw_data_total[[j]] %>% 
+    mutate(year = j + 1993) %>% 
+   setNames(c("state_name", "pop_num", "year")) # setNames is used to change the column names
+}
+# to add the year information to each element in the list "raw_data_total" respectively.
+```
+
+After the deeper thinking of how the data will contribute to the diabetes incidence, I find the raw data of the percentage of diabetes cases in different states in the US from 1994 to 2015 on the website [Centers for Disease Control and Prevention](https://gis.cdc.gov/grasp/diabetes/DiabetesAtlas.html), I download these data in 22 cvs files according to the year number and import them into R as following codes shown: 
+
+```{r message= FALSE, warning=FALSE}
+
+folder_per <- "~/R_projects/Diabetes/Raw_data_percentage"
+file_vec_per <- list.files(path = folder_per, pattern = "*.csv")
+for (k in 1:22){
+  file_vec_per[k] <- paste("Raw_data_percentage", file_vec_per[k], sep="/")
+}
+
+raw_data_percentage <- lapply(file_vec_per, read_csv, skip = 2 , n_max = 55, col_types= "cd")
+for (m in 1:22){
+  raw_data_percentage[[m]] <- raw_data_percentage[[m]] %>% 
+    mutate(year = m + 1993)
+  raw_data_percentage[[m]] <- raw_data_percentage[[m]][-c(1),] # delete the first row of the median number
+}
+
+```
+Attention need to be paid to the fact that I used age-adjusted percentage data focusing on the adults with diabetes.
+
+# 3) Data manipulation 
+After finding and importing the raw data, I firstly converted the 22 elements in the list variable into one single dataframe called *diabetes_data_per*.
+```{r message = FALSE, warning=FALSE}
+options(scipen=999)  # turn off scientific notation like 1e+06
+diabetes_data_per = raw_data_percentage[[1]]
+for (n in 2:22){
+  diabetes_data_per = rbind(diabetes_data_per, raw_data_percentage[[n]])
+}
+# Above steps are to combind all 22 elements in the list to a single dataframe
+colnames(diabetes_data_per) <- c("state_name", "incidence_num", "year")
+# change the column names to facilitate the left_join with space data
+```
+Secondly, I used the package [urbnmapr](https://github.com/UrbanInstitute/urbnmapr) to get the space data of all states in US for the data visulization steps.
+```{r message = FALSE}
+devtools::install_github("UrbanInstitute/urbnmapr")
+# download the package "urbnmapr" to get the space data of all states in US
+library(urbnmapr)
+states
+```
+Using left join to merge the diabetes incidence data with the geographic data, and get the dataframe **diabetes_state** for the data visulization.
+```{r message = FALSE, warning=FALSE}
+library(urbnmapr)
+diabetes_state <- left_join(diabetes_data_per, states, by = "state_name") 
+#join original diabetes incidence data with sapce data together
+```
+#4) Data visualization
+##4.1) Visulization
+
+###4.1.1) Simple plot
+Using **ggplot2** to create several visulization figure to find something behind the data we have got. First the using the dataset *diabetes_data_per* to find something between the year and diabetes incidence in different years.
+```{r message = FALSE, warning=FALSE}
+diabetes_data_per %>% 
+  filter (!is.na(incidence_num)) %>%  # filter out the missing value
+  filter(state_name %in% sample(unique(state_name),6)) %>%  # choose six random states at each time
+  ggplot(aes(year, incidence_num/100,color = state_name))+
+  geom_line()+
+  geom_smooth() +
+  #Set the figure title 
+  labs(x = "Year",y = "Diabetes incidence",title ="Diabetes incidence over year for six random states in the US", color= "State")+
+  # change the label format to percentage 
+  scale_y_continuous(labels = scales::percent_format())
+ggsave("Result_picture/trendline_plot.png")
+  
+```
+
+###4.1.2) Heatmap 
+#### Heatmap package
+Fistly change the data sturcture of original data to matrix and use heatmap package to create simple heatmap. The basic heatmap definitely need some improvements.
+```{r message = FALSE, warning=FALSE}
+diabetes_year<- diabetes_data_per %>% 
+  mutate(year = paste0("Y", year), incidence_num = incidence_num/100) %>% 
+  spread(year, incidence_num) 
+
+diabetes_year %>%
+  column_to_rownames(.,var="state_name") %>% 
+  data.matrix() %>% 
+  # Use base builtin function to draw the figure
+  heatmap(.,Rowv=NA, Colv=NA, col = cm.colors(256),scale="column", margins=c(5,10))
+```
+#### Ggplot2 method
+Using ggplot2 and reshape2 package to create high quality heatmap. Modified process is similar to the process in the [tutorial](http://www.roymfrancis.com/a-guide-to-elegant-tiled-heatmaps-in-r/).
+
+```{r message = FALSE, warning=FALSE}
+library(reshape2) # used to transform the data structure for ggplot2 to create the 
+
+# Prepare the data and filter out two States with most NA values
+diabetes_ggheat <- diabetes_year %>% 
+  melt() %>% # prepare the datastructure to plot heatmap in ggplot2
+  setNames(c("State", "Year", "incidence")) %>% 
+  filter(State != "Guam") %>%
+  filter(State != "Virgin Islands of the U.S.")
+
+# Create a basic heat map using ggplot2
+diabetes_ggheat %>% 
+  ggplot(aes(x= Year, y=State))+
+  geom_tile(aes(fill = incidence)) 
+ggsave("Result_picture/basic_heatmap.png", width = 12, height = 9)
+
+# Modified the basic heat map to a better one
+diabetes_ggheat %>% 
+  ggplot(aes(x= Year, y=State,fill = incidence))+
+  #add border white colour of line thickness 0.25
+  geom_tile(colour = "white", size = .25) +
+  #remove x and y axis labels and add tile 
+  labs(x="",y="",title="Incidence of Diabetes in the US", caption = "Plot by Jihong Tang|Data from #CDC")+
+  #remove extra space
+  scale_y_discrete(expand=c(0,0))+
+  #define new breaks on x-axis
+  scale_x_discrete(expand=c(0,0),
+  breaks=c("Y1995","Y2000","Y2005","Y2010","Y2015"))+
+  # change the fill color in gradient
+  scale_fill_viridis_c(option = "plasma", labels = scales::percent_format())+
+  font("caption", size = 10 ) +
+  # change some theme format
+  theme(
+    # change the backgroud of the plot to grey
+    plot.background = element_rect(fill = "#f5f5f4", color = NA), 
+    # change the backgroud of the panel to grey
+    panel.background = element_rect(fill = "#f5f5f4", color = NA), 
+    # change the backgroud of the legend to grey
+    legend.background = element_rect(fill = "#f5f5f4", color = NA),
+    # remove the legend title
+    legend.title = element_blank(),
+    # change the font size and color of axis
+    axis.text= element_text(size = 7, color ="grey40"),
+    # change the font size of the legend
+    legend.text = element_text(size = 9, color = "grey40"),
+    # chage the font size of the title 
+    title = element_text(size = 16),
+    legend.key.height = unit(.8, "cm"),
+    legend.key.width = unit(.4, "cm")
+    )
+ggsave("Result_picture/modified_heatmap.png")
+```
+###4.1.3) Bar plot
+```{r message = FALSE, warning = FALSE}
+diabetes_barplot <- diabetes_data_per %>% 
+  # use case_when to divide the incidence number into several different level
+  mutate(Incidence = case_when(
+    incidence_num >= 1 & incidence_num < 2 ~ "[0.001,0.02)",
+    incidence_num >= 2 & incidence_num < 3 ~ "[0.02,0.03)",
+    incidence_num >= 3 & incidence_num < 4 ~ "[0.03,0.04)",
+    incidence_num >= 4 & incidence_num < 5 ~ "[0.04,0.05)",
+    incidence_num >= 5 & incidence_num < 6 ~ "[0.05,0.06)",
+    incidence_num >= 6 & incidence_num < 7 ~ "[0.06,0.07)",
+    incidence_num >= 7 & incidence_num < 8 ~ "[0.07,0.08)",
+    incidence_num >= 8 & incidence_num < 9 ~ "[0.08,0.09)",
+    incidence_num >= 9 & incidence_num < 10 ~ "[0.09,0.10)",
+    incidence_num >= 10 & incidence_num < 11 ~ "[0.10,0.11)",
+    incidence_num >= 11 & incidence_num < 12 ~ "[0.11,0.12)",
+    incidence_num >= 12 & incidence_num < 13 ~ "[0.12,0.13)",
+    incidence_num >= 13 & incidence_num < 14 ~ "[0.13,0.14)",
+    incidence_num >= 14 & incidence_num < 15 ~ "[0.14,0.15)",
+    incidence_num >= 15 & incidence_num < 16 ~ "[0.15,0.16)",
+  ))
+  
+diabetes_barplot %>% 
+  # select eight year randomly in onece
+  filter(year %in% sample(unique(year),8), !is.na(Incidence)) %>% 
+  ggplot() + 
+  geom_bar(aes(Incidence,fill = Incidence))+
+  # use the viridis color theme
+  scale_fill_viridis_d() +
+  coord_flip()+
+  facet_grid(.~year)+
+  # change the title and caption of the figure 
+  labs(title = "Incidence Occurance of Diabetes for Ten Random Years in the US", y = "Count", x = "Incidence bucket",caption = "Plot by Jihong Tang | Data from #CDC" ) +
+  # change the theme element
+  theme(title = element_text(size = 12),
+        axis.text = element_text(size = 7)
+        )
+
+ggsave("Result_picture/barplot.png")
+```
+
+
+## 4.2) Mapping visulization 
+### 4.2.1) Simple chloropleth map 
+Firstly, filter the year to some specific data year to see the visulization result for several individual year(1994,2000,2015).
+```{r message=FALSE, warning=FALSE}
+# filter the year 1994 to visulization
+diabetes_state %>% 
+  filter(year == 1994)%>% 
+  ggplot(aes(long, lat, group = group, fill = incidence_num/100)) + 
+  geom_polygon(color = "white", size = .1) +
+  coord_map(projection = "albers", lat0 = 39, lat1 = 45) +
+  labs(x ="", y = "", fill = "", title = "Incidence of Diabetes around the US", subtitle = "Year 1994") +
+  scale_fill_viridis_c(option = "plasma", labels = scales::percent_format())+
+  theme_void()+
+  theme(plot.background = element_rect(fill = "#f5f5f4", color = NA), 
+        panel.background = element_rect(fill = "#f5f5f4", color = NA), 
+        legend.background = element_rect(fill = "#f5f5f4", color = NA),
+        plot.title = element_text(size= 20, hjust=0.5, color = "#4e4d47", margin = margin(b = -0.1, t = 0.4, l = 2, unit = "cm")),
+    plot.subtitle = element_text(size= 16, hjust=0.5, color = "#4e4d47", margin = margin(b = -0.1, t = 0.4, l = 2, unit = "cm")),
+        legend.position = c(0.9, 0.4))
+ggsave("Result_picture/1994_basic_chloropleth.png")
+
+# filter the year 2000 to visulization
+diabetes_state %>% 
+  filter(year == 2000)%>% 
+  ggplot(aes(long, lat, group = group, fill = incidence_num/100)) + 
+  geom_polygon(color = "white", size = .1) +
+  coord_map(projection = "albers", lat0 = 39, lat1 = 45) +
+  labs(x ="", y = "", fill = "", title = "Incidence of Diabetes around the US", subtitle = "Year 2000") +
+  scale_fill_viridis_c(option = "plasma", labels = scales::percent_format())+
+  theme_void()+
+  theme(plot.background = element_rect(fill = "#f5f5f4", color = NA), 
+        panel.background = element_rect(fill = "#f5f5f4", color = NA), 
+        legend.background = element_rect(fill = "#f5f5f4", color = NA),
+        plot.title = element_text(size= 20, hjust=0.5, color = "#4e4d47", margin = margin(b = -0.1, t = 0.4, l = 2, unit = "cm")),
+    plot.subtitle = element_text(size= 16, hjust=0.5, color = "#4e4d47", margin = margin(b = -0.1, t = 0.4, l = 2, unit = "cm")),
+        legend.position = c(0.9, 0.4))
+ggsave("Result_picture/2000_basic_chloropleth.png")
+
+
+# filter the year 2015 to visulization
+diabetes_state %>% 
+  filter(year == 2015)%>% 
+  ggplot(aes(long, lat, group = group, fill = incidence_num/100)) + 
+  geom_polygon(color = "white", size = .1) +
+  coord_map(projection = "albers", lat0 = 39, lat1 = 45) +
+  labs(x ="", y = "", fill = "", title = "Incidence of Diabetes around the US", subtitle = "Year 2015") +
+  scale_fill_viridis_c(option = "plasma", labels = scales::percent_format())+
+  theme_void()+
+  theme(plot.background = element_rect(fill = "#f5f5f4", color = NA), 
+        panel.background = element_rect(fill = "#f5f5f4", color = NA), 
+        legend.background = element_rect(fill = "#f5f5f4", color = NA),
+        plot.title = element_text(size= 20, hjust=0.5, color = "#4e4d47", margin = margin(b = -0.1, t = 0.4, l = 2, unit = "cm")),
+        plot.subtitle = element_text(size= 16, hjust=0.5, color = "#4e4d47", margin = margin(b = -0.1, t = 0.4, l = 2, unit = "cm")),
+        legend.position = c(0.9, 0.4))
+ggsave("Result_picture/2015_basic_chloropleth.png")
+
+```
+Secondly, filter several years and create a facet figure to see the changing relationship betweeen the years.
+```{r message=FALSE, warning=FALSE}
+diabetes_state %>% 
+  filter (year %in% c(1994,1998,2002,2006,2010,2014)) %>% 
+  ggplot(aes(long, lat, group = group, fill = incidence_num/100)) + 
+  geom_polygon(color = NA) +
+  scale_fill_viridis_c(labels = scales::percent_format()) +
+  coord_map(projection = "albers", lat0 = 39, lat1 = 45) +
+  labs(title ="Diabetes Incidence over Six Random Years around the US",fill = "",caption = "Plot by Jihong Tang | Data from #CDC") +
+  theme_void()+
+  facet_wrap(~ year) +
+  # change the theme element
+  theme(
+        plot.background = element_rect(fill = "#f5f5f4", color = NA), 
+        panel.background = element_rect(fill = "#f5f5f4", color = NA), 
+        legend.background = element_rect(fill = "#f5f5f4", color = NA),
+        plot.title = element_text(size= 16, hjust=0.5, color = "#4e4d47", margin = margin(b = -0.05, t = 0.4, l = 2, unit = "cm")),
+        legend.position = "bottom",
+        legend.direction = "horizontal",
+        legend.box = "horizontal", 
+        legend.key.height = unit(.3, "cm"),
+        legend.key.width = unit(1,"cm")
+  )
+ggsave("Result_picture/facet_picture.png")
+
+```
+
+### 4.2.2) Animated chloropleth map 
+Using gganimate to firstly create an animation figure for several years, chaning the legend color as gradient from blue to red.
+
+
+```{r message=FALSE, warning=FALSE}
+diabetes_state %>% 
+#  filter (year %in% c(1995,2000,2005,2010,2015)) %>% 
+  ggplot(aes(long, lat, group = group, fill = incidence_num/100)) + 
+  geom_polygon(color = NA) +
+  scale_fill_viridis_c(option = "plasma", labels = scales::percent_format()) +
+  coord_map() +
+  theme_void() + 
+  # {current_frame} is used to show the changed frame name 
+  labs(title = "Diabetes incidence over year around the US", subtitle ="Year: {current_frame}", fill = "", caption = "Plot by Jihong Tang | Data from #CDC") +
+  theme(
+    plot.background = element_rect(fill = "#f5f5f4", color = NA),
+    panel.background = element_rect(fill = "#f5f5f4", color = NA), 
+    legend.background = element_rect(fill = "#f5f5f4", color = NA),
+    plot.title = element_text(size= 18, hjust=0.5, color = "#4e4d47", margin = margin(b = -0.05, t = 0.4, l = 2, unit = "cm")),
+     plot.subtitle = element_text(size= 16, hjust=0.5, color = "#4e4d47", margin = margin(b = -0.1, t = 0.4, l = 2, unit = "cm")),
+    legend.position = c(0.9, 0.25)
+  )+
+  # make the animation
+    transition_manual(year) 
+# save the animation figure
+anim_save("Result_picture/animation_with_changed_title.gif")
+
+```
+Using tweenr package to create a smooth animation. Firstly, just try to make the smooth animation between two years. In order to ignore the influence of NA values, I chose two years without any NA incidence number, which are 1997 and 2015.
+
+```{r message=FALSE, warning=FALSE}
+data1997 <- diabetes_state %>% filter(year == 1997)
+
+data2015 <- diabetes_state %>% filter(year == 2015) %>% select(year, incidence_num)
+# create the list of dataframe to use the tween_states function
+states_list <- list(data1997, data2015)
+# tween the states between the two years' data
+tween <- tween_states(states_list, tweenlength = 3, statelength = 1, nframes = 50, ease = "linear")
+
+tween %>% ggplot(aes(long,lat,group = group, fill = incidence_num/100)) +
+  geom_polygon()+
+  scale_fill_viridis_c(option = "plasma") + 
+  coord_map()+
+  theme_void()+
+  # add title and caption, also add the changable subtitle
+   labs(title = "Diabetes incidence over year around the US", subtitle = "DFrame:{current_frame}", fill = "", caption = "Plot by Jihong Tang | Data from #CDC") +
+  theme(
+    plot.background = element_rect(fill = "#f5f5f4", color = NA),
+    panel.background = element_rect(fill = "#f5f5f4", color = NA), 
+    legend.background = element_rect(fill = "#f5f5f4", color = NA),
+    plot.title = element_text(size= 16, hjust=0.5, color = "#4e4d47", margin = margin(b = -0.05, t = 0.4, l = 2, unit = "cm")),
+    plot.subtitle = element_text(size= 16, hjust=0.5, color = "#4e4d47", margin = margin(b = -0.1, t = 0.4, l = 2, unit = "cm")),
+    legend.position = c(0.9, 0.25)
+  )+
+  # make the animation
+  transition_manual(.frame)
+# save the animation figure
+anim_save("Result_picture/basic_smooth_animaton.gif")
+  
+```
+Then, consider all 22 years to make a whole smooth animation visulization.
+
+```{r message=FALSE, warning=FALSE}
+# first filter the completed data in year 1994
+data1994 <- diabetes_state %>% filter(year == 1994)
+
+# Then filter the data with only year and incidence number for year 1995 to 2015
+data_1995_2015 <- diabetes_state %>% 
+  filter(year != 1994) %>% 
+  select(year, incidence_num) %>% 
+  # split into 21 dataframe in one list for the input form of tweenr package
+  split(.$year)
+
+# combine the year 1994 data(as a list) with the list data from 1995 to 2015
+tween_list <- c(list(data1994), data_1995_2015)
+# set the total number of frames as 400
+tween_whole <- tween_states(tween_list, tweenlength = 30, statelength = 1, nframes =400, ease = "linear")
+```
+
+```{r message=FALSE, warning=FALSE}
+# plot the smooth animation figure
+tween_whole %>% ggplot(aes(long,lat,group = group, fill = incidence_num/100)) +
+  geom_polygon()+
+  scale_fill_viridis_c(option = "plasma") + 
+  coord_map()+
+  theme_void()+
+   labs(title = "Diabetes incidence over year around the US", subtitle = "Frame: {current_frame}", fill = "", caption = "Plot by Jihong Tang | Data from #CDC") +
+  # change the theme element
+  theme(
+    plot.background = element_rect(fill = "#f5f5f4", color = NA),
+    panel.background = element_rect(fill = "#f5f5f4", color = NA), 
+    legend.background = element_rect(fill = "#f5f5f4", color = NA),
+    plot.title = element_text(size= 16, hjust=0.5, color = "#4e4d47", margin = margin(b = -0.05, t = 0.4, l = 2, unit = "cm")),
+    plot.subtitle = element_text(size= 16, hjust=0.5, color = "#4e4d47", margin = margin(b = -0.1, t = 0.4, l = 2, unit = "cm")),
+    legend.position = c(0.9, 0.25)
+  )+
+  # make the animation 
+  transition_manual(.frame)
+# save the animation figure
+anim_save("Result_picture/smooth_animation_chloropleth_400.gif")
+```
+
+## 4.3) Cartogram Visulization
+### 4.3.1) Cartogram by the incidence number
+Create the sp object from package **maps** and combine the 2015 year diabetes incidence data to the sp object, creating the input object of the package *cartogram*.
+```{r message=FALSE, warning=FALSE}
+require(maps)
+require(sp)
+require(maptools)
+require(tmap)
+require(cartogram)
+
+diabetes_data_ctgm <- diabetes_data_per %>% 
+  # filter the data of year 2015
+  filter(year == 2015) %>% 
+  # add the rownames and change the Upcase statename to the Lowcase statename for the combining work
+  data.frame(row.names = .$state_name,state = tolower(.$state_name),.)
+
+# got the map object
+usa <- map("state", fill = TRUE)
+# using sapply function to get all the state name in the map
+IDs <- sapply(strsplit(usa$names, ":"), function(x) x[1]) 
+
+diabetes_polygon <- usa %>% 
+  # convert the map object to the spatialpolygon object
+  map2SpatialPolygons(., IDs=IDs, proj4string=CRS("+proj=longlat +datum=WGS84")) %>% 
+  # create an empty dataframe in the SP object for the combining work
+  SpatialPolygonsDataFrame(., 
+                                data = data.frame(unique(IDs), 
+                                                  row.names = unique(IDs)) )
+# combine the diabetes incidence data with the sp object
+diabetes_polygon@data = data.frame(diabetes_polygon@data, diabetes_data_ctgm[match(diabetes_polygon@data[,'unique.IDs.'], diabetes_data_ctgm[,'state' ]),])
+
+# cartogram the sp object dependent on the incidence data
+diabetes_ctgm <- cartogram(diabetes_polygon, "incidence_num")
+```
+Firstly, using *tmap* package to create one simple cartogram figure.
+```{r message=FALSE, warning=FALSE}
+tm_shape(diabetes_ctgm)+
+  tm_fill("incidence_num", style="jenks") +
+  tm_borders() + 
+  tm_layout(frame=F)
+```
+Secondly, using ggplot2 to modify the cartogram figure.
+
+```{r message=FALSE, warning= FALSE}
+library(broom) # library the package broom to change the data from SP to dataframe using tidy
+diabetes_ctgm_df <- tidy(diabetes_ctgm) %>% 
+  # join the data into the dataframe
+  left_join(.,diabetes_ctgm@data, by=c("id"="state"))
+
+diabetes_ctgm_df %>% 
+  ggplot(aes(long, lat, group = group, fill = incidence_num/100))+
+  geom_polygon(color = "white", size = .1) +
+  #change the fill color
+  scale_fill_viridis_c(direction = 1, option = "plasma", labels = scales::percent_format()) +
+  # remove other part of elements
+  theme_void()+
+  # set the coordinate
+  coord_map() +
+  # add title and subtitle names and remove the legend name
+  labs(title = "Incidence of Diabetes in 2015 around the US", subtitle = "Cartogram by the incidence",fill = "",caption = "Plot by Jihong Tang | Data from #CDC") +
+  theme(plot.background = element_rect(fill = "#f5f5f4", color = NA), 
+        panel.background = element_rect(fill = "#f5f5f4", color = NA), 
+        legend.background = element_rect(fill = "#f5f5f4", color = NA),
+        plot.title = element_text(size= 18, hjust=0.5, color = "#4e4d47", margin = margin(b = -0.1, t = 0.4, l = 2, unit = "cm")),
+        plot.subtitle = element_text(size= 14, hjust=0.5, color = "#4e4d47", margin = margin(b = -0.1, t = 0.4, l = 2, unit = "cm")),
+       legend.position = c(0.2, 0.05),
+       legend.direction = "horizontal",
+       legend.key.height = unit(.3, "cm"),
+       legend.key.width = unit(1,"cm")
+       )
+ggsave("Result_picture/modified_cartogram.png")
+```
+
+```{r message=FALSE, warning= FALSE}
+library(broom) # library the package broom to change the data from SP to dataframe using tidy
+library(tweenr) #library the package tweenr to make the smooth animation between different states
+diabetes_polygon_df <- tidy(diabetes_polygon) %>% 
+  # join the data into the dataframe
+  left_join(.,diabetes_polygon@data, by=c("id"="state"))
+
+# Give an id to every single point that compose the boundaries
+diabetes_ctgm_df$id=seq(1,nrow(diabetes_ctgm_df))
+diabetes_polygon_df$id=seq(1,nrow(diabetes_polygon_df)) 
+
+# Bind both map info in a data frame. 3 states: map --> cartogram --> map
+ctgm_anim_data <- rbind(diabetes_polygon_df, diabetes_ctgm_df, diabetes_polygon_df)
+
+ctgm_anim_data %>% 
+  # Set transformation type + time
+  mutate(ease="cubic-in-out", time=rep(c(1:3), each=nrow(diabetes_polygon_df))) %>% 
+  tween_elements(., time = "time", group = "id", ease = "ease", nframes = 100) %>% 
+  ggplot(aes(long, lat, group = group, fill = incidence_num/100))+
+  geom_polygon(color = "white", size = .1) +
+  #change the fill color
+  scale_fill_viridis_c(option = "plasma", labels = scales::percent_format()) +
+  # remove other part of elements
+  theme_void()+
+  # set the coordinate
+  coord_map() +
+  # add title and subtitle names and remove the legend name
+  labs(title = "Incidence of Diabetes in 2015 around the US", subtitle = "Cartogram by the incidence",fill = "",caption = "Plot by Jihong Tang | Data from #CDC") +
+  theme(# change the plot background to grey 
+        plot.background = element_rect(fill = "#f5f5f4", color = NA), 
+        # change the panel background to grey 
+        panel.background = element_rect(fill = "#f5f5f4", color = NA),
+        # change the legend background to grey 
+        legend.background = element_rect(fill = "#f5f5f4", color = NA),
+        # set the text size and location for the title
+        plot.title = element_text(size= 18, hjust=0.5, color = "#4e4d47", margin = margin(b = -0.1, t = 0.4, l = 2, unit = "cm")),
+        # set the text size and location for the subtitle
+        plot.subtitle = element_text(size= 14, hjust=0.5, color = "#4e4d47", margin = margin(b = -0.1, t = 0.4, l = 2, unit = "cm")),
+        # set the position of the legend
+        legend.position = c(0.2, 0.05),
+        # set the direction of the legend
+        legend.direction = "horizontal",
+       # set the height for each of the legend key
+        legend.key.height = unit(.3, "cm"),
+       # set the width for each of the legend key
+        legend.key.width = unit(1,"cm")
+       ) +
+  # animate with the .frame value, and the .frame value comes from the tweenr package
+  transition_manual(.frame)
+# save the animation file
+anim_save("Result_picture/cartogram_animation.gif")
+```
+It seems that some southern states with high diabetes incidence number is becoming smaller in the animation, that is a question since we want to show the trendence that states with high incidence become larger and the ones with low incidence become smaller.
+
+###4.3.2) Cartogram by the absolute population number
+Maybe it is because the differences of the incidence are not so large, therefore, this time we cartogram by the absolute pop number.
+
+First. prepare the data used to create the cartogram.
+```{r message=FALSE, warning=FALSE}
+library(urbnmapr) # get the state space data
+
+diabetes_data_pop = raw_data_total[[1]]
+for (n in 2:22){
+  diabetes_data_pop = rbind(diabetes_data_pop, raw_data_total[[n]])
+}
+# Above steps are to combind all 22 elements in the list to a single dataframe
+
+# change the column names to facilitate the left_join with space data
+colnames(diabetes_data_pop) <- c("state_name", "pop_num", "year")
+
+# join the diabetes absolute population data with the space data
+diabetes_state_pop <- left_join(diabetes_data_pop, states, by = "state_name") %>% group_by(year)
+
+diabetes_data_pop_ctgm <- diabetes_data_pop %>% 
+  # filter the data of year 2015
+  filter(year == 2015) %>% 
+  # add the rownames and change the Upcase statename to the Lowcase statename for the combining work
+  data.frame(row.names = .$state_name,state = tolower(.$state_name),.)
+
+# got the map object
+usa <- map("state", fill = TRUE)
+# using sapply function to get all the state name in the map
+IDs <- sapply(strsplit(usa$names, ":"), function(x) x[1]) 
+
+diabetes_pop_polygon <- usa %>% 
+  # convert the map object to the spatialpolygon object
+  map2SpatialPolygons(., IDs=IDs, proj4string=CRS("+proj=longlat +datum=WGS84")) %>% 
+  # create an empty dataframe in the SP object for the combining work
+  SpatialPolygonsDataFrame(., 
+                                data = data.frame(unique(IDs), 
+                                                  row.names = unique(IDs)) )
+# combine the diabetes population data with the sp object
+diabetes_pop_polygon@data = data.frame(diabetes_pop_polygon@data, diabetes_data_pop_ctgm[match(diabetes_pop_polygon@data[,'unique.IDs.'], diabetes_data_pop_ctgm[,'state' ]),])
+
+# cartogram the sp object dependent on the population data
+diabetes_pop_ctgm <- cartogram(diabetes_pop_polygon, "pop_num")
+
+```
+
+Secondly, do the cartogram work based on the diabetes population number.
+```{r message=FALSE, warning=FALSE}
+library(broom) # library the package broom to change the data from SP to dataframe using tidy
+diabetes_pop_ctgm_df <- tidy(diabetes_pop_ctgm) %>% 
+  # join the data into the dataframe
+  left_join(.,diabetes_pop_ctgm@data, by=c("id"="state"))
+
+diabetes_pop_ctgm_df %>% 
+  ggplot(aes(long, lat, group = group, fill = pop_num/1000))+
+  geom_polygon(color = "white", size = .1) +
+  #change the fill color
+  scale_fill_viridis_c(direction = 1, option = "plasma") +
+  # remove other part of elements
+  theme_void()+
+  # set the coordinate
+  coord_map() +
+  # add title and subtitle names and remove the legend name
+  labs(title = "Population number of Diabetes in 2015 around the US", subtitle = "Cartogram by the population number(K)",fill = "",caption = "Plot by Jihong Tang | Data from #CDC") +
+  theme(plot.background = element_rect(fill = "#f5f5f4", color = NA), 
+        panel.background = element_rect(fill = "#f5f5f4", color = NA), 
+        legend.background = element_rect(fill = "#f5f5f4", color = NA),
+        plot.title = element_text(size= 18, hjust=0.5, color = "#4e4d47", margin = margin(b = -0.1, t = 0.4, l = 2, unit = "cm")),
+        plot.subtitle = element_text(size= 14, hjust=0.5, color = "#4e4d47", margin = margin(b = -0.1, t = 0.4, l = 2, unit = "cm")),
+       legend.position = c(0.2, 0.05),
+       legend.direction = "horizontal",
+       legend.key.height = unit(.3, "cm"),
+       legend.key.width = unit(1,"cm")
+       )
+ggsave("Result_picture/modified_pop_cartogram.png")
+```
+Thirdly, using gganimate and tweenr to create a smooth animation work
+```{r message=FALSE, warning=FALSE}
+diabetes_pop_polygon_df <- tidy(diabetes_pop_polygon) %>% 
+  # join the data into the dataframe
+  left_join(.,diabetes_pop_polygon@data, by=c("id"="state"))
+
+# Give an id to every single point that compose the boundaries
+diabetes_pop_ctgm_df$id=seq(1,nrow(diabetes_pop_ctgm_df))
+diabetes_pop_polygon_df$id=seq(1,nrow(diabetes_pop_polygon_df)) 
+
+# Bind both map info in a data frame. 3 states: map --> cartogram --> map
+pop_ctgm_anim_data <- rbind(diabetes_pop_polygon_df, diabetes_pop_ctgm_df, diabetes_pop_polygon_df)
+
+pop_ctgm_anim_data %>% 
+  mutate(ease="cubic-in-out", time=rep(c(1:3), each=nrow(diabetes_pop_polygon_df))) %>% 
+  tween_elements(., time = "time", group = "id", ease = "ease", nframes = 100) %>% 
+  ggplot(aes(long, lat, group = group, fill = pop_num/1000))+
+  geom_polygon(color = "white", size = .1) +
+  #change the fill color
+  scale_fill_viridis_c(option = "plasma") +
+  # remove other part of elements
+  theme_void()+
+  # set the coordinate
+  coord_map() +
+  # add title and subtitle names and remove the legend name
+  labs(title = "Population number of Diabetes in 2015 around the US", subtitle = "Cartogram by the population number(K)",fill = "",caption = "Plot by Jihong Tang | Data from #CDC") +
+  theme(# change the plot background to grey 
+        plot.background = element_rect(fill = "#f5f5f4", color = NA), 
+        # change the panel background to grey 
+        panel.background = element_rect(fill = "#f5f5f4", color = NA),
+        # change the legend background to grey 
+        legend.background = element_rect(fill = "#f5f5f4", color = NA),
+        # set the text size and location for the title
+        plot.title = element_text(size= 18, hjust=0.5, color = "#4e4d47", margin = margin(b = -0.1, t = 0.4, l = 2, unit = "cm")),
+        # set the text size and location for the subtitle
+        plot.subtitle = element_text(size= 14, hjust=0.5, color = "#4e4d47", margin = margin(b = -0.1, t = 0.4, l = 2, unit = "cm")),
+        # set the position of the legend
+        legend.position = c(0.2, 0.05),
+        # set the direction of the legend
+        legend.direction = "horizontal",
+       # set the height for each of the legend key
+        legend.key.height = unit(.3, "cm"),
+       # set the width for each of the legend key
+        legend.key.width = unit(1,"cm")
+       ) +
+  # animate with the .frame value, and the .frame value comes from the tweenr package
+  transition_manual(.frame)
+# save the animation file
+anim_save("Result_picture/pop_cartogram_animation.gif")
+```
+
+# 5) Data analysis result 
+As can be seen from different types of figures about the incidence of diabetes around the US, we could easily find that the diabetes incidences are increasing around the US. 
+
+From the chloropleth graph, we could find the diabetes incidence is larger in southern part of US than in the other part. 
+
+The animation figures could give us a direct insight into the change of diabetes incidence over time, which is important for us to realize.
