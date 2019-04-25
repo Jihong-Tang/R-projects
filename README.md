@@ -11,4 +11,8 @@
 Data Visualization R projects - several simple R-based data visualization projects. Updated from author's other workspace, including Rstudio.
 
 # Purpose
-Import, clean, analysis and visualize various kinds of data based on [R](https://www.r-project.org/)
+Import, clean, analysis and visualize various kinds of data based on [R](https://www.r-project.org/), one fantastic programming language for statiscal computing and data visualization.
+
+For detailed information, check `READMD.md` in each sub-directories.
+
+# Direc
