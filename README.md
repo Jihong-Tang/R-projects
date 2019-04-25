@@ -19,3 +19,5 @@ For detailed information, check `README.md` in each sub-directories.
 * [`diabetes_US/`](diabetes_US/): Data analysis about the diabetes in the US, independent study project during the stay in Duke University as an exchange student, instructed by Matthew Hirschey in [Hirschey Lab](https://github.com/hirscheylab).
 
 
+# Author 
+Jihong Tang &lt;njutangjihong@gmail.com&gt;
