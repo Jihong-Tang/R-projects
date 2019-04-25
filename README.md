@@ -16,6 +16,6 @@ Import, clean, analysis and visualize various kinds of data based on [R](https:/
 For detailed information, check `README.md` in each sub-directories.
 
 # Directory organization
-* [`\diabetes_US`](\diabetes_US): Data analysis about the diabetes in the US, independent study project during the stay in Duke University as an exchange student, instructed by Matthew Hirschey in [Hirschey Lab](https://github.com/hirscheylab).
+* [`diabetes_US/`](diabetes_US/): Data analysis about the diabetes in the US, independent study project during the stay in Duke University as an exchange student, instructed by Matthew Hirschey in [Hirschey Lab](https://github.com/hirscheylab).
 
 
