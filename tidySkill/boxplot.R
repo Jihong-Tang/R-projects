@@ -1,6 +1,8 @@
 # This script is used to import the data and output the boxplot result based on given command line arguments
 
 # Argument: command line argument:[1] The path of the file; [2] The path to save file;
+# Author: Jihong Tang
+# Date: April 28, 2019
 
 args <- commandArgs(T)
 file_path <- args[1]
