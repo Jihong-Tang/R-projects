@@ -1,6 +1,7 @@
 [TOC levels=1-3]: #
 
 # Table of Contents
+- [Table of Contents](#table-of-contents)
 - [Name](#name)
 - [Purpose](#purpose)
 - [Directory organization](#directory-organization)
@@ -17,7 +18,7 @@ For detailed information, check `README.md` in each sub-directories.
 
 # Directory organization
 * [`diabetes_US/`](diabetes_US/): Data analysis about the diabetes in the US, independent study project during the stay in Duke University as an exchange student, instructed by Matthew Hirschey in [Hirschey Lab](https://github.com/hirscheylab).
-
+* [`tidySkill/`](tidySkill/): Collection of R scripts used to deal with miscellaneous problems coming from different areas. Specific R data analysis skills have be *hidden* in these scripts.
 
 # Author 
 Jihong Tang &lt;njutangjihong@gmail.com&gt;
