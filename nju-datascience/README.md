@@ -155,6 +155,8 @@ q <- task3df %>%
   geom_tile(aes(fill = signal)) 
 ```
 
+![basic violin plot](result-pic/basic_violinplot.png)
+
 **function implementation**
 
 The procedure to draw basic boxplot and density plot could also been implenmented into function, which could take the position argument as function argument to plot the conditions at specific given location. 
