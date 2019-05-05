@@ -51,7 +51,7 @@ map_packages <- c("maps", "sp", "maptools", "tmap", "cartogram", "broom")
 
 for(package in c(basic_packages, graphics_packages, map_packages ) ) {
     if(!is_installed(package)) {
-        install.packages(library, repos="https://mirrors.tuna.tsinghua.edu.cn/CRAN")
+        install.packages(package, repos="https://mirrors.tuna.tsinghua.edu.cn/CRAN")
     }
 }
 ```
