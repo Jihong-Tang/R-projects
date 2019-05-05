@@ -32,6 +32,33 @@ Finally, the whole project will base on the [R](https://www.r-project.org/), a p
 # Environment setup 
 ## R packages installation
 To achieve the goal of the specific project, we need to take advantage of the R environment, as well as the various useful packages focusing on different specilized job. Below is the list of the R packages needed to be installed.
+
+```bash
+# basic command line method
+R
+```
+```r
+is_installed <- function(package) {
+    available <- suppressMessages(suppressWarnings(sapply(package, require, quietly = TRUE, character.only = TRUE, warn.conflicts = FALSE)))
+    missing <- package[!available]
+    if (length(missing) > 0) return(FALSE)
+    return(TRUE)
+}
+
+basic_packages <- c("tidyverse", "devtools")
+graphics_packages <- c("gganimate", "tweenr", "viridis", "ggpubr", "reshape2")
+map_packages <- c("maps", "sp", "maptools", "tmap", "cartogram", "broom")
+
+for(package in c(basic_packages, graphics_packages, map_packages ) ) {
+    if(!is_installed(package)) {
+        install.packages(library, repos="https://mirrors.tuna.tsinghua.edu.cn/CRAN")
+    }
+}
+```
+```bash
+# Rscript method
+Rscript $HOME/R_projects/diabetes_US/Scripts/install.R 
+```
 ## Environment initilization
 
 # Author
