@@ -27,7 +27,7 @@ Stage two will be based on the assumption that the increasing incidence of diabe
 
 Finally, the whole project will base on the [R](https://www.r-project.org/), a programming language statistical computing and graphics.
 
-**Updating**: the whole project is firstly finished during the author's stay in Hirschey's Lab from August, 2018 to December, 2018. Afterwards, the author repeated the project work and update some small details utilizing the Linux server back in China in May, 2019. Here presents the recombination of the project work based on R and Linux environment. The original project work records could be found in [Data_analysis_about_the_diabetes_in_the_US.Rmd](./Data_analysis_about_the_diabetes_in_the_US.Rmd).
+**Updating**: the whole project is firstly finished during the author's stay in [Hirschey Lab](https://github.com/hirscheylab) at Duke University from August, 2018 to December, 2018. Afterwards, the author repeated the project work and update some small details utilizing the Linux server back in China in May, 2019. Here presents the recombination of the project work based on R and Linux environment. The original project work records could be found in [Data_analysis_about_the_diabetes_in_the_US.Rmd](./Data_analysis_about_the_diabetes_in_the_US.Rmd).
 
 # Environment setup 
 ## R packages installation
